@@ -1,0 +1,32 @@
+# A complete (tiny) monitoring stack:
+#   app        -> our sample app, exposes metrics at :8000/metrics
+#   prometheus -> scrapes & stores the metrics, query UI at :9090
+#   grafana    -> draws dashboards from Prometheus, UI at :3000
+
+services:
+  app:
+    build: ./app
+    ports:
+      - "8000:8000"        # so you can curl the raw metrics yourself
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      # Let you in without a login prompt for the exercise.
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      # Auto-wires Prometheus as the data source on startup.
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus

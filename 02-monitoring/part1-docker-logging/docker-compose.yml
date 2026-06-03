@@ -1,0 +1,29 @@
+# Two tiny services. No Dockerfile needed: we reuse the official python image
+# and mount our script into it. Both just print logs to stdout, and Docker
+# captures them — that is what `docker compose logs` reads.
+
+services:
+  web:
+    image: python:3.12-slim
+    # -u = unbuffered output, so logs appear immediately (important in containers!)
+    command: python -u /app/app.py
+    volumes:
+      - ./app.py:/app/app.py:ro
+    # Configure the logging DRIVER: keep logs as JSON files, but ROTATE them
+    # so they can never fill the disk (max 3 files of 1 MB each).
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+  worker:
+    image: python:3.12-slim
+    command: python -u /app/worker.py
+    volumes:
+      - ./worker.py:/app/worker.py:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"

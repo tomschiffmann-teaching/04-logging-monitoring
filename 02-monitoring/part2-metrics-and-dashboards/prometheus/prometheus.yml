@@ -1,0 +1,15 @@
+# Prometheus config: WHO to scrape and HOW OFTEN.
+
+global:
+  scrape_interval: 5s        # read every target's /metrics every 5 seconds
+
+scrape_configs:
+  # Our sample app. 'app' is the docker-compose service name (Docker DNS resolves it).
+  - job_name: "sample-app"
+    static_configs:
+      - targets: ["app:8000"]
+
+  # Prometheus also scrapes itself (handy for sanity-checking).
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
