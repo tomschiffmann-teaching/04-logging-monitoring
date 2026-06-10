@@ -46,9 +46,17 @@ and switch to the **Graph** tab. That's the temperature wiggling over time.
 ## 4. Build a dashboard in Grafana
 Open **http://localhost:3000** (you're logged in automatically as Admin).
 
-1. Left menu → **Dashboards → New → New dashboard → Add visualization**.
-2. Pick the **Prometheus** data source (already there).
-3. In the query box, paste one of these and watch the panel draw:
+1. Left menu → **Dashboards** → **New** (top right) → **New dashboard**.
+   You land on an empty dashboard that says *"Add a panel to visualize your data"*.
+2. Click the **Panel** tile in the **Add** sidebar on the right (the little graph
+   thumbnail with the big **+**). This opens the **Edit panel** view.
+3. At the bottom, under **Queries**, the data source should already say
+   **Prometheus** — leave it.
+4. The query editor starts in **Builder** mode (dropdowns like *Select metric*).
+   To paste a ready-made query, switch the toggle on the right of the query row
+   from **Builder** to **Code** — now you get a text box.
+5. Paste one of these into the code box and click **Run queries** to watch the
+   panel draw:
 
    **Request rate (requests per second), split by status:**
    ```
@@ -66,8 +74,12 @@ Open **http://localhost:3000** (you're logged in automatically as Admin).
    ```
    histogram_quantile(0.95, rate(app_request_latency_seconds_bucket[1m]))
    ```
-4. Give the panel a title, click **Apply**. Add a couple more panels. Set the
-   time range (top-right) to **Last 15 minutes** and auto-refresh to **5s**.
+6. Give the panel a title (right-hand pane → **Panel options → Title**), then click
+   **Back to dashboard** (top left) — or **Save** (top right) to keep it.
+7. Add a couple more panels the same way (**+ Add → Panel**). Set the time range
+   (top-right clock, e.g. *Last 6 hours*) to **Last 15 minutes** and the
+   auto-refresh dropdown next to **Refresh** to **5s**. When you're done
+   arranging, click **Save**, then **Exit edit**.
 
 🎉 You now have a live dashboard that updates as the app runs.
 
@@ -80,6 +92,49 @@ docker compose start app         # it recovers; graphs resume
 ```
 This is the core monitoring loop: **something changes → the metric moves → you see it
 (and in production, an alert fires).**
+
+## 6. (Optional) Get an email when it breaks
+In step 5 *you* watched the graph. Now let Grafana watch it and email **you**.
+
+**a) Give Grafana a mail account to send from (your own):**
+```bash
+cp .env.example .env              # then edit .env with your address + password
+docker compose up -d grafana      # restart Grafana so it picks up the settings
+```
+For Gmail you need an **app password** (Google Account → Security →
+2-Step Verification → App passwords) — your normal password won't work.
+Any provider is fine; just set its SMTP host and credentials in `.env`.
+> The `.env` file contains a real password — don't commit it to git.
+
+**b) Tell Grafana where alerts should go:**
+1. Left menu → **Alerting → Contact points** → edit **grafana-default-email**.
+2. Put your own address in **Addresses** and click **Test** — you should get a
+   test mail within seconds (check spam). If not, fix `.env` before continuing.
+3. **Save contact point**.
+
+**c) Create the alert rule ("the app is down"):**
+1. **Alerting → Alert rules → New alert rule**, name it `App down`.
+2. In the query (switch **Builder → Code** like before), enter:
+   ```
+   up{job="sample-app"}
+   ```
+   Prometheus sets this to `1` while it can scrape the app, `0` when it can't.
+3. In the condition below, set: **WHEN last() OF A IS BELOW 1**.
+4. Under evaluation, create a folder (e.g. `lab`) and an evaluation group with a
+   **10s** interval, and set the **pending period** to **0s** (= fire immediately;
+   in production you'd wait a minute or two to avoid flapping).
+5. Pick **grafana-default-email** as the contact point and **Save rule and exit**.
+
+**d) Break it and check your inbox:**
+```bash
+docker compose stop app           # alert goes Pending -> Firing
+docker compose start app          # a 'Resolved' email follows
+```
+Give it 1–2 minutes — alert evaluation isn't instant. You can watch the state
+change under **Alerting → Alert rules** while you wait.
+
+> That email is the difference between *monitoring* and *staring at dashboards*:
+> nobody watches graphs at 3 a.m. — the alert does.
 
 ## Logs vs metrics — the lesson
 - In Part 1 you `grep`-ed logs for "error". That's reactive and per-machine.

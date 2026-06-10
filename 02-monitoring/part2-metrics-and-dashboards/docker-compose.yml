@@ -25,6 +25,13 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Optional email alerting (README step 6). Values come from a .env file
+      # next to this compose file; without one, SMTP simply stays disabled.
+      - GF_SMTP_ENABLED=${SMTP_ENABLED:-false}
+      - GF_SMTP_HOST=${SMTP_HOST:-smtp.gmail.com:587}
+      - GF_SMTP_USER=${SMTP_USER:-}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_USER:-grafana@localhost}
     volumes:
       # Auto-wires Prometheus as the data source on startup.
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

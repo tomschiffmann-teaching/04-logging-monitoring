@@ -22,3 +22,5 @@ Thumbs.db
 prometheus-data/
 grafana-data/
 *.env.local
+# holds personal SMTP credentials for the optional email-alerting task
+.env
