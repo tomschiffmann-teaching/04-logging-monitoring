@@ -1,10 +1,11 @@
 # Logging & Monitoring — Course Exercises
 
-Two hands-on exercises. Only **basic Python** and **Docker / Docker Compose** are required.
+Hands-on exercises. Only **basic Python** and **Docker / Docker Compose** are required.
 
 ```
-01-logging/      → Exercise 1: from print() to real logging, then debug-by-logging
-02-monitoring/   → Exercise 2: Docker container logs, then metrics + dashboards
+01-logging/                 → Exercise 1: from print() to real logging, then debug-by-logging
+02-monitoring/              → Exercise 2: Docker container logs, then metrics + dashboards
+03-tracing-opentelemetry/   → Exercise 3 (bonus): follow one request across services
 ```
 
 ## 👉 New to the terminal / Python? Read `SETUP.md` first
@@ -26,5 +27,6 @@ No `pip install` is needed for Exercise 1 — Python's `logging` is built in.
 | 2 | Find-the-bug with logs (`01-logging/part2-find-the-bug`) | 30 min |
 | 3 | Docker container logging (`02-monitoring/part1-docker-logging`) | 25 min |
 | 4 | Metrics + Grafana dashboard (`02-monitoring/part2-metrics-and-dashboards`) | 30 min |
+| 5 | *Bonus:* tracing with OpenTelemetry + Jaeger (`03-tracing-opentelemetry`) | 30 min |
 
 Start with `01-logging/README.md`.

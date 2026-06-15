@@ -1,0 +1,30 @@
+# A (tiny) distributed system + tracing:
+#   frontend -> receives /checkout, calls the backend, UI traffic is simulated
+#   backend  -> the "payment service" (sometimes slow, sometimes fails)
+#   jaeger   -> receives the traces (OTLP) and shows them in a UI at :16686
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "8001:8000"      # host port 8001 so it can't clash with part2's app on 8000
+    environment:
+      # Where the OpenTelemetry SDK sends its spans (Jaeger speaks OTLP).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    depends_on:
+      - backend
+      - jaeger
+
+  backend:
+    build: ./backend
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    ports:
+      - "16686:16686"    # the Jaeger UI
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
