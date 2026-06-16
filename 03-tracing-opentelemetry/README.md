@@ -43,7 +43,10 @@ You get `{"status": "ok", ...}` — or occasionally `payment-failed`. From the o
 you can't tell **why** it failed or why it was slow. Logs would show you two
 disconnected lines in two services. Let's see the trace instead.
 
-## 3. Look at a trace in Jaeger
+## 3. Orient yourself — how to read a trace
+This section is just a tour so you know what you're looking at; the **graded
+exercises start right after it**.
+
 Open **http://localhost:16686**.
 1. In the **Service** dropdown (left), pick **frontend** → **Find Traces**.
 2. Click any trace. You'll see a timeline like:
@@ -58,39 +61,103 @@ Open **http://localhost:16686**.
    One request, **two services, one picture**. Click a span to see its
    **attributes** (e.g. `cart.items`, `amount.eur`).
 
-## 4. Find the slow one and the broken one
-- **Slow:** in the search results, look at the duration dots/list — some traces take
-  **1–2 s** instead of ~0.3 s. Open one: which span ate the time?
-  (You should be able to name the guilty service AND the guilty step.)
-- **Broken:** search again with **Tags** = `error=true` (or just spot the red icons).
-  Open one and click the failing span — the status says **card declined**.
+---
 
-> That's the everyday superpower of tracing: "checkout is slow" stops being a
-> debate between teams and becomes *"the card-network call in backend takes 1.8s"*.
+# Your exercises
 
-## 5. Add your own span (small task)
-Open `backend/app.py` — the tracing setup is ~10 lines of boilerplate, then spans are
-created with `with tracer.start_as_current_span("name") as span:`.
+These are the tasks to complete. They're mostly **investigation** — you read real
+traces in Jaeger and figure out what happened — plus one small code change at the end.
+Keep a scratch file (or paper) and **write down the short answer asked for in each
+exercise**; that's your deliverable. Work on the live traffic that's already flowing.
 
-1. In `charge()`, wrap a new step in its own span, e.g. `"send receipt email"`
-   with a `time.sleep(random.uniform(0.05, 0.1))` inside.
+> Tip: every exercise lives in the Jaeger UI at **http://localhost:16686**. The search
+> form is on the left; results are a clickable list; clicking a trace opens its span
+> tree; clicking a span opens its **Tags / attributes** and **Logs / Events**.
+
+## Exercise 1 — Read one trace end to end
+Open any normal (non-red) `frontend` trace and study it.
+
+**Write down:**
+1. How many **services** and how many **spans** are in this one request?
+2. List the spans **in order** and which service each belongs to. Which span is the
+   **parent** of all the others (the root)?
+3. Click the `validate-cart` span — what is the value of its `cart.items` attribute?
+   Then find a span whose attributes mention that same number of items.
+
+> Goal: get comfortable reading a span tree as *one request's journey across services*,
+> not a pile of disconnected log lines.
+
+## Exercise 2 — Find the slow request
+Most checkouts finish in ~0.3 s, but some take **1–2 s**. Find one without scanning by eye:
+in the search form set **Min Duration** = `1s`, then **Find Traces**. Open a slow trace.
+
+**Write down:**
+1. Which **service** and which **span** ate the time? (Name the exact span.)
+2. Roughly how long did that span take, and what fraction of the whole trace is it?
+3. Open a *fast* trace and look at the same span — how does its duration compare?
+   What does that tell you about *where* the slowness comes from?
+
+> "Checkout is slow" is now a precise fact: *"the `card-network: authorize` span in
+> backend took 1.8 s."* No cross-team guessing.
+
+## Exercise 3 — Find the broken request
+About 1 in 10 checkouts fail. Find them: in the **Tags** box type `error=true` and
+**Find Traces** (failed traces also show a red ⊘ icon in the list). Open one and click
+the span marked with the error.
+
+**Write down:**
+1. Which **span** in which **service** actually failed, and what is its status
+   **message**?
+2. The frontend's top-level `GET /checkout` span is *also* flagged as errored even
+   though the real failure is deeper. Why is that useful rather than confusing?
+3. From the *outside*, the customer just saw `payment-failed`. What does the trace tell
+   you that the outside response did not?
+
+## Exercise 4 — Two services, one trace (context propagation)
+A request touches **two** separate containers, yet they show up in **one** trace. Prove
+it. Open any trace and click the frontend's outgoing `GET` span, then the backend's
+`GET /charge` span.
+
+**Write down:**
+1. Find the **Trace ID** (shown at the top of the trace view). Do the frontend spans
+   and backend spans share the **same** Trace ID?
+2. Read the top of `frontend/app.py` and `backend/app.py`. Which two lines make this
+   automatic linking happen? (Hint: one *injects* context into the outgoing HTTP call,
+   one *reads* it on the way in — search for `Instrumentor`.)
+
+> The frontend stamps a `traceparent` header onto its HTTP call to the backend; the
+> backend reads it and continues the same trace. That's *distributed* tracing.
+
+## Exercise 5 — Let Jaeger draw your system
+Click the **System Architecture** tab at the top of the Jaeger UI (give it some traffic
+first).
+
+**Write down:**
+1. What graph does Jaeger draw, and what do the nodes and the arrow represent?
+2. Nobody wrote this diagram by hand — where did Jaeger get it from? Why is this
+   valuable once a real system has dozens of services?
+
+## Exercise 6 — Add your own span (one small code change)
+Now produce a little trace data yourself. Open `backend/app.py` — the tracing setup is
+~10 lines of boilerplate, then spans are created with
+`with tracer.start_as_current_span("name") as span:`.
+
+1. In `charge()`, wrap a new step in its own span, e.g. `"send receipt email"`, with a
+   `time.sleep(random.uniform(0.05, 0.1))` inside.
 2. Add an attribute: `span.set_attribute("email.to", "customer@example.com")`.
 3. Rebuild and restart: `docker compose up -d --build backend`.
-4. Find a fresh trace in Jaeger — your span should appear in the tree.
+4. Wait ~10 s for fresh traffic, then **Find Traces** again.
+
+**Write down:** where does your new span appear in the tree, and does clicking it show
+your `email.to` attribute?
+
+---
 
 ## Optional / stretch tasks (for the fast finishers)
 Done early? Pick any of these — they go deeper, in roughly increasing difficulty.
 None are required to "pass" the exercise.
 
-**A. Hunt traces like a pro (no code).**
-- In the search form, set **Min Duration** = `1s` and **Find Traces** — now you get
-  *only* the slow ones, no eyeballing.
-- In the **Tags** box try `error=true`, then `http.status_code=500`.
-- Open the **System Architecture** tab (top of the page). After some traffic Jaeger
-  draws a `frontend → backend` dependency graph — built entirely from the spans,
-  which nobody declared by hand. That's a map of your system, for free.
-
-**B. Make the error span actually useful (small code change).**
+**A. Make the error span actually useful (small code change).**
 Right now the failing span only says "card declined". Attach the real exception so
 Jaeger shows it as an event. In `backend/app.py`, change the failure branch to:
 ```python
@@ -103,7 +170,7 @@ Jaeger shows it as an event. In `backend/app.py`, change the failure branch to:
 `docker compose up -d --build backend`, find a failed trace, click the red span →
 the **Logs/Events** now contain an `exception` with its type and message.
 
-**C. Nest a span inside a span (small code change).**
+**B. Nest a span inside a span (small code change).**
 Spans form a *tree* — a span can have children. Inside `card-network: authorize`,
 wrap a sub-step in its own span:
 ```python
@@ -117,7 +184,7 @@ wrap a sub-step in its own span:
 Rebuild the backend. In Jaeger, `fraud-check` now appears **indented under**
 `card-network: authorize` — the tree got one level deeper.
 
-**D. Tune the chaos and watch it change (experiment).**
+**C. Tune the chaos and watch it change (experiment).**
 The backend's "slow" and "fail" rates are just two numbers. Bump the slow chance from
 `0.15` to `0.8` (or the failure chance from `0.10` to `0.5`), rebuild the backend, and
 watch almost every trace turn slow / red in Jaeger. This is the same idea as the
